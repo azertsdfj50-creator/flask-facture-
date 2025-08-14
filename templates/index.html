@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">Générateur de Documents</h1>
+    
+    <form method="POST" id="invoiceForm">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h5 mb-0">Informations du Document</h2>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="doc_type" class="form-label">Type de Document</label>
+                        <select class="form-select" id="doc_type" name="doc_type" required>
+                            <option value="">-- Sélectionnez --</option>
+                            {% for value, label in doc_types %}
+                            <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="client_id" class="form-label">Client</label>
+                        <div class="input-group">
+                            <select class="form-select" id="client_id" name="client_id" required>
+                                <option value="">-- Sélectionnez un client --</option>
+                                {% for client in clients %}
+                                <option value="{{ client.id }}">{{ client.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <a href="{{ url_for('manage_clients') }}" class="btn btn-outline-secondary" type="button">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payment_method" class="form-label">Méthode de Paiement</label>
+                        <select class="form-select" id="payment_method" name="payment_method">
+                            <option value="ESPÈCES">Espèces</option>
+                            <option value="CHÈQUE">Chèque</option>
+                            <option value="VIREMENT">Virement</option>
+                            <option value="CARTE">Carte Bancaire</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6" id="globalDiscountField" style="display: none;">
+                        <label for="global_discount" class="form-label">Remise Globale (%)</label>
+                        <input type="number" class="form-control" id="global_discount" name="global_discount" 
+                               min="0" max="100" step="1" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Articles</h2>
+                <a href="{{ url_for('manage_items') }}" class="btn btn-sm btn-light">
+                    <i class="fas fa-plus"></i> Ajouter Article
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="40px"></th>
+                                <th>Code</th>
+                                <th>Description</th>
+                                <th class="text-end">Prix Unitaire</th>
+                                <th class="text-center">Quantité</th>
+                                <th class="text-center">Remise %</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input" name="item_ids" value="{{ item.id }}">
+                                </td>
+                                <td>{{ item.code }}</td>
+                                <td>{{ item.description }}</td>
+                                <td class="text-end">{{ "%.2f"|format(item.unit_price) }} DA</td>
+                                <td class="text-center">
+                                    <input type="number" name="quantities" class="form-control form-control-sm" 
+                                           min="1" step="1" value="1" style="width: 70px;">
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="discount_{{ item.id }}" class="form-control form-control-sm" 
+                                           min="0" max="100" step="1" value="0" style="width: 70px;">
+                                </td>
+                                <td class="text-end item-total">0.00 DA</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h2 class="h5 mb-0">Récapitulatif</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 offset-md-6">
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th class="text-end">TOTAL HT:</th>
+                                    <td class="text-end" id="subtotal">0.00 DA</td>
+                                </tr>
+                                <tr id="discountRow" style="display: none;">
+                                    <th class="text-end">REMISE <span id="discountPercent">0</span>%:</th>
+                                    <td class="text-end" id="discountAmount">0.00 DA</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-end">NET HT:</th>
+                                    <td class="text-end" id="netSubtotal">0.00 DA</td>
+                                </tr>
+                                <tr id="taxRow">
+                                    <th class="text-end">TVA <span id="taxRate">19</span>%:</th>
+                                    <td class="text-end" id="taxAmount">0.00 DA</td>
+                                </tr>
+                                <tr>
+                                    <th class="text-end">TIMBRE:</th>
+                                    <td class="text-end">0.00 DA</td>
+                                </tr>
+                                <tr class="table-active">
+                                    <th class="text-end">NET A PAYER:</th>
+                                    <td class="text-end fw-bold" id="totalAmount">0.00 DA</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-file-word me-2"></i>Générer Document
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle global discount field based on document type
+    const docTypeSelect = document.getElementById('doc_type');
+    const globalDiscountField = document.getElementById('globalDiscountField');
+    
+    docTypeSelect.addEventListener('change', function() {
+        if (this.value === 'discounted_invoice') {
+            globalDiscountField.style.display = 'block';
+        } else {
+            globalDiscountField.style.display = 'none';
+        }
+        
+        // Update tax display
+        const taxRow = document.getElementById('taxRow');
+        if (this.value === 'tax_exempt') {
+            taxRow.style.display = 'none';
+            document.getElementById('taxRate').textContent = '0';
+        } else {
+            taxRow.style.display = '';
+            document.getElementById('taxRate').textContent = '19';
+        }
+        
+        calculateTotals();
+    });
+    
+    // Calculate totals when quantities or discounts change
+    document.querySelectorAll('input[name^="quantities"], input[name^="discount_"]').forEach(input => {
+        input.addEventListener('input', calculateTotals);
+    });
+    
+    // Global discount change
+    document.getElementById('global_discount').addEventListener('input', calculateTotals);
+    
+    // Initial calculation
+    calculateTotals();
+});
+
+function calculateTotals() {
+    let subtotal = 0;
+    const docType = document.getElementById('doc_type').value;
+    const taxRate = docType === 'tax_exempt' ? 0 : 19;
+    
+    // Calculate items totals
+    document.querySelectorAll('input[name="item_ids"]:checked').forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const unitPrice = parseFloat(row.querySelector('td:nth-child(4)').textContent.replace(' DA', '').replace(' ', ''));
+        const quantity = parseFloat(row.querySelector('input[name="quantities"]').value) || 0;
+        const discount = parseFloat(row.querySelector('input[name^="discount_"]').value) || 0;
+        
+        const itemTotal = quantity * unitPrice * (1 - discount / 100);
+        subtotal += itemTotal;
+        
+        // Update row total
+        row.querySelector('.item-total').textContent = itemTotal.toFixed(2).replace('.', ',') + ' DA';
+    });
+    
+    // Calculate global discount
+    const globalDiscount = docType === 'discounted_invoice' ? 
+        (parseFloat(document.getElementById('global_discount').value) || 0) : 0;
+    const discountAmount = subtotal * globalDiscount / 100;
+    const netSubtotal = subtotal - discountAmount;
+    
+    // Calculate tax and total
+    const taxAmount = netSubtotal * taxRate / 100;
+    const total = netSubtotal + taxAmount;
+    
+    // Update summary
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2).replace('.', ',') + ' DA';
+    
+    if (globalDiscount > 0) {
+        document.getElementById('discountRow').style.display = '';
+        document.getElementById('discountPercent').textContent = globalDiscount;
+        document.getElementById('discountAmount').textContent = discountAmount.toFixed(2).replace('.', ',') + ' DA';
+    } else {
+        document.getElementById('discountRow').style.display = 'none';
+    }
+    
+    document.getElementById('netSubtotal').textContent = netSubtotal.toFixed(2).replace('.', ',') + ' DA';
+    document.getElementById('taxAmount').textContent = taxAmount.toFixed(2).replace('.', ',') + ' DA';
+    document.getElementById('totalAmount').textContent = total.toFixed(2).replace('.', ',') + ' DA';
+}
+</script>
+{% endblock %}
